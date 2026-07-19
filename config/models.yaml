@@ -1,0 +1,29 @@
+# Model routing. Every backend below speaks the OpenAI /v1/chat/completions
+# wire format, so switching provider/model is a config change, not a code change.
+#
+# Two ROLES, routed independently (see docs — the free-tier vs long-run tension):
+#   online  -> the agent loop (100-1000 episodes). Prefer a LOCAL open model:
+#              no rate limits, cost = your hardware.
+#   offline -> consolidation (diagnose/induce/validate). Bursty + batchable, so a
+#              free-tier hosted model is fine here.
+#
+# For tests and dry runs, use provider: dry_run (no network, no model needed).
+
+roles:
+  online:
+    provider: openai_compat
+    base_url: http://localhost:11434/v1      # Ollama default
+    model: qwen2.5:14b-instruct
+    api_key: ""
+    rpm_limit: null                          # local => no limit
+
+  offline:
+    provider: openai_compat
+    base_url: https://api.groq.com/openai/v1 # free tier
+    model: llama-3.3-70b-versatile
+    api_key: ${GROQ_API_KEY}
+    rpm_limit: 30
+
+# Free / open backends that all work behind openai_compat:
+#   local  : Ollama (11434), vLLM/SGLang (8000), llama.cpp server, LM Studio
+#   hosted : Groq, OpenRouter (free models), Google AI Studio, Cerebras, Together

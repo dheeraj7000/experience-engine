@@ -1,0 +1,9 @@
+# Experiment definition. A "run" is (config x family x seed) with checkpoints.
+experiment: smoke
+family: toy_bug            # registered family id (see families/registry.py)
+configs: [a0, a1, a2]     # the three-agent experimental spine
+seeds: [1, 2, 3]
+checkpoint_every: 5       # snapshot the experience store every N episodes
+max_steps: 4              # agent controller step budget per episode
+models: config/models.yaml
+out_dir: runs

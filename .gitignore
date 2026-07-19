@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# Experiment outputs: manifests, store snapshots, reports
+runs/*
+!runs/.gitkeep
+
+# Local secrets for hosted free-tier providers
+.env

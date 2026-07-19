@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "exp-eng"
+version = "0.0.1"
+description = "Experience Engine — a continual-learning layer that turns agent trajectories into validated, reusable competence. Phase 0-1 prototype."
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2.5",
+    "pyyaml>=6.0",
+    "numpy>=1.24",
+    "httpx>=0.24",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[tool.setuptools]
+# Flat-layout top-level packages. Tests run from repo root (see conftest.py).
+packages = ["providers", "schemas", "agent", "agent.tools", "persistence",
+            "persistence.a2_engine", "harness", "families", "benchmarks"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
