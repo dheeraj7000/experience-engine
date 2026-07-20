@@ -77,6 +77,18 @@ class ExperienceStore:
         scored.sort(key=lambda x: x[0], reverse=True)
         return [e for s, e in scored[:k]]
 
+    def find_mergeable(self, task_family: str, context_conditions: dict[str, Any]
+                       ) -> ExperienceObject | None:
+        """An existing (non-rejected) experience for the exact same family +
+        conditions. New evidence should reinforce it, not spawn a near-
+        duplicate — duplicates bloat injected context for zero added lesson."""
+        for e in self.experiences:
+            if (e.task_family == task_family
+                    and e.context_conditions == context_conditions
+                    and e.validation_status != ValidationStatus.rejected):
+                return e
+        return None
+
     def active_policies(self, scope: str) -> list[PolicyObject]:
         pols = [p for p in self.policies
                 if p.validation_status == ValidationStatus.active

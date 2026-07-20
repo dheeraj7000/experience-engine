@@ -33,7 +33,13 @@ class ExperienceValidator:
         baseline, improved = replay_fn(experience)
         delta = improved - baseline
         experience.last_validated = now
-        if delta >= self.min_delta and delta >= 0:
+        # Strict improvement, not just "non-negative": success is a
+        # probability in [0, 1], so whenever baseline is already 0 (a common
+        # case on a hard held-out set) ANY improved score is >= 0 and a
+        # >= comparison would pass vacuously — never actually testing
+        # whether the lesson helped. Requiring delta > min_delta keeps exact
+        # ties (including 0-vs-0) out.
+        if delta > self.min_delta:
             experience.validation_status = ValidationStatus.active
             return True
         experience.validation_status = ValidationStatus.rejected

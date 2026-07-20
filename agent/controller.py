@@ -7,12 +7,14 @@ episode. The controller is deliberately dumb about learning.
 from __future__ import annotations
 
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from providers import ModelProvider
 from schemas import Episode, Step
 from schemas.episode import Cost
-from harness.environment import Environment, Variant
+
+if TYPE_CHECKING:  # avoid a runtime agent<->harness import cycle; types only
+    from harness.environment import Environment, Variant
 
 SYSTEM_PROMPT = (
     "You are a QA engineering agent. You solve testing and debugging tasks by "

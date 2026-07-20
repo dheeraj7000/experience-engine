@@ -39,3 +39,26 @@ def test_consolidation_does_not_double_process():
     engine.consolidate(replay_fn=lambda exp: (0.4, 0.9))
     engine.consolidate(replay_fn=lambda exp: (0.4, 0.9))  # nothing new
     assert len(store.experiences) == 1
+
+
+def test_recurring_same_signature_reinforces_not_duplicates():
+    """A new batch of same-signature failures at a later checkpoint should
+    strengthen the existing experience, not mint a near-duplicate policy —
+    duplicates would bloat every future retrieve() with copies of the same
+    unhelpful text for zero added lesson."""
+    store = ExperienceStore()
+    engine = ExperienceEngine(store)
+    for i in range(3):
+        engine.record(_failing(i))
+    engine.consolidate(replay_fn=lambda exp: (0.4, 0.9))
+    assert len(store.experiences) == 1
+    assert len(store.policies) == 1
+    first_evidence = store.experiences[0].evidence_count
+
+    for i in range(3, 6):                      # a second batch, same signature
+        engine.record(_failing(i))
+    engine.consolidate(replay_fn=lambda exp: (0.4, 0.9))
+
+    assert len(store.experiences) == 1          # reinforced, not duplicated
+    assert len(store.policies) == 1
+    assert store.experiences[0].evidence_count > first_evidence

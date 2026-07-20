@@ -18,6 +18,18 @@ def test_validator_rejects_harmful_experience():
     assert exp.validation_status == ValidationStatus.rejected
 
 
+def test_validator_rejects_vacuous_tie_at_zero_baseline():
+    """If baseline held-out success is already 0 (common on a hard set),
+    'improved >= 0' is trivially true for ANY replay outcome -- it can't
+    distinguish a real lesson from a no-op. A tie (0 -> 0) must be rejected,
+    not accepted just because the delta isn't negative."""
+    exp = ExperienceObject(experience_id="x", task_family="toy", lesson="no-op")
+    v = ExperienceValidator()
+    promoted = v.validate(exp, replay_fn=lambda e: (0.0, 0.0))
+    assert promoted is False
+    assert exp.validation_status == ValidationStatus.rejected
+
+
 def test_validator_no_replay_stays_provisional():
     exp = ExperienceObject(experience_id="x", task_family="toy", lesson="maybe")
     assert ExperienceValidator().validate(exp, replay_fn=None) is False

@@ -13,16 +13,25 @@ roles:
   online:
     provider: openai_compat
     base_url: http://localhost:11434/v1      # Ollama default
-    model: qwen2.5:14b-instruct
+    model: qwen2.5:3b-instruct                # verified tool-calling on this box (4GB VRAM)
     api_key: ""
     rpm_limit: null                          # local => no limit
 
   offline:
+    # Default: same local Ollama instance, so the whole system runs with zero
+    # network / zero API keys out of the box. Swap to a hosted free tier
+    # (uncomment below) for bursty consolidation without competing with the
+    # online role for local GPU/CPU.
     provider: openai_compat
-    base_url: https://api.groq.com/openai/v1 # free tier
-    model: llama-3.3-70b-versatile
-    api_key: ${GROQ_API_KEY}
-    rpm_limit: 30
+    base_url: http://localhost:11434/v1
+    model: qwen2.5:3b-instruct
+    api_key: ""
+    rpm_limit: null
+    # provider: openai_compat
+    # base_url: https://api.groq.com/openai/v1 # free tier
+    # model: llama-3.3-70b-versatile
+    # api_key: ${GROQ_API_KEY}
+    # rpm_limit: 30
 
 # Free / open backends that all work behind openai_compat:
 #   local  : Ollama (11434), vLLM/SGLang (8000), llama.cpp server, LM Studio

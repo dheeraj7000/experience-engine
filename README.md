@@ -46,7 +46,7 @@ schemas/          Episode · RewardVector · ExperienceObject · PolicyObject (p
 agent/            ReAct controller + sandboxed pytest tool (the reward substrate)
 persistence/      base · store (jsonl+vector) · a0 · a1 · a2_engine/ (the MVES loop)
 harness/          environment · task_family · sequencer · runner · reporter
-families/         toy_bug (executable) + qa_families specs ("all QA")
+families/         toy_bug + bug_reproduction (both executable) + qa_families specs
 benchmarks/       lifelongagentbench adapter (Phase-1 anchor, stub)
 docs/             the full research proposal, as markdown
 tests/            unit · integration · eval-validity (poisoned-experience gate)
@@ -62,9 +62,17 @@ pytest                       # full suite, no model needed
 # Plumbing demo (network-free stub model -> flat curves, full loop runs):
 python run.py --family toy_bug --configs a0 a1 a2 --seeds 1 2 3 --provider dry_run
 
-# Real learning curves need a real online model. Point config/models.yaml at a
-# local Ollama/vLLM endpoint, then:
+# Real learning curves need a real online model. config/models.yaml already
+# points at a local Ollama endpoint (qwen2.5:3b-instruct, verified tool
+# calling on a 4GB-VRAM box) for both roles, so this runs fully offline once
+# `ollama pull qwen2.5:3b-instruct` has been done:
 python run.py --provider config
+
+# --n-episodes repeats/reshuffles a family beyond its variant count within a
+# single seed's persistent store, so A2 gets enough recurring failures to
+# actually cluster -> diagnose -> induce -> validate -> promote a policy:
+python run.py --family bug_reproduction --provider config --n-episodes 28 \
+    --checkpoint-every 7 --max-steps 3
 ```
 
 ## Model routing (free / open only)
@@ -75,7 +83,9 @@ rate-limit vs long-run tension:
 - **online** (the 100–1000-episode agent loop) → a **local** open model
   (Ollama / vLLM): no rate limits.
 - **offline** (bursty consolidation) → a **free-tier hosted** model (Groq,
-  OpenRouter, …) is fine.
+  OpenRouter, …) works well here, but the shipped default points both roles
+  at the same local Ollama instance so the whole system runs with zero
+  network calls and zero API keys out of the box.
 
 Every backend speaks the OpenAI `/v1/chat/completions` shape, so switching is a
 config change, not a code change.

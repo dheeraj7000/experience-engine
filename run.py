@@ -29,6 +29,8 @@ def main() -> None:
     ap.add_argument("--models", default="config/models.yaml")
     ap.add_argument("--max-steps", type=int, default=4)
     ap.add_argument("--checkpoint-every", type=int, default=5)
+    ap.add_argument("--n-episodes", type=int, default=None,
+                     help="Repeat/reshuffle the family to build a longer curve than len(variants).")
     ap.add_argument("--out-dir", default="runs")
     args = ap.parse_args()
 
@@ -44,7 +46,7 @@ def main() -> None:
     cfg = RunConfig(
         configs=args.configs, seeds=args.seeds,
         checkpoint_every=args.checkpoint_every, max_steps=args.max_steps,
-        out_dir=args.out_dir,
+        n_episodes=args.n_episodes, out_dir=args.out_dir,
     )
     records = runner.run(family, cfg)
 

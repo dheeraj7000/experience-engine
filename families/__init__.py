@@ -8,14 +8,16 @@ code), never judge-graded.
 from __future__ import annotations
 
 from .toy_bug import ToyBugFamily
+from .bug_reproduction import BugReproductionFamily
 
 _REGISTRY = {
     "toy_bug": ToyBugFamily,
+    "bug_reproduction": BugReproductionFamily,
 }
 
 # Declared but not yet implemented (see qa_families.py for the spec).
 PLANNED = [
-    "bug_reproduction", "flaky_test_triage", "test_authoring",
+    "flaky_test_triage", "test_authoring",
     "regression_bisect", "failure_clustering",
 ]
 

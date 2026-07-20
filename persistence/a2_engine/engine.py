@@ -66,6 +66,21 @@ class ExperienceEngine:
             candidate = self.inducer.induce(eps, diagnosis, context)
             if candidate.confidence < self.min_confidence:
                 continue
+
+            existing = self.store.find_mergeable(candidate.task_family,
+                                                   candidate.context_conditions)
+            if existing is not None:
+                # Same family + conditions recurring: REINFORCE the existing
+                # experience rather than mint a near-duplicate. Without this,
+                # every checkpoint with >=MIN_CLUSTER new same-signature
+                # failures promotes its own policy, and retrieve() ends up
+                # injecting several copies of the same unhelpful text —
+                # bloating tokens with no added lesson.
+                self._reinforce(existing, eps)
+                for e in eps:
+                    self._consolidated_ids.add(e.episode_id)
+                continue
+
             # VALIDATE before it can influence behavior.
             promoted = self.validator.validate(candidate, replay_fn)
             self.store.add_experience(candidate)
@@ -73,6 +88,12 @@ class ExperienceEngine:
                 self.store.add_policy(self.policy_mgr.promote(candidate))
             for e in eps:
                 self._consolidated_ids.add(e.episode_id)
+
+    @staticmethod
+    def _reinforce(existing, new_eps: list[Episode]) -> None:
+        existing.evidence_count += len(new_eps)
+        existing.source_episodes.extend(e.episode_id for e in new_eps)
+        existing.confidence = min(0.95, existing.confidence + 0.05)
 
     # ---- helpers ----------------------------------------------------------
     def _cluster_new_failures(self) -> dict[str, list[Episode]]:
