@@ -1,4 +1,7 @@
 from .base import PersistenceLayer
+from .graph import ExperienceGraph, GraphNode, GraphEdge, NodeType, EdgeType
+from .graph_builder import GraphBuilder
+from .hybrid_retriever import HybridRetriever, RetrievalResult
 from .store import ExperienceStore
 from .a0_none import NoPersistence
 from .a1_memory import MemoryOnly
@@ -6,6 +9,8 @@ from .a2_engine.engine import ExperienceEngine
 
 __all__ = [
     "PersistenceLayer", "ExperienceStore",
+    "ExperienceGraph", "GraphNode", "GraphEdge", "NodeType", "EdgeType",
+    "GraphBuilder", "HybridRetriever", "RetrievalResult",
     "NoPersistence", "MemoryOnly", "ExperienceEngine",
     "build_persistence",
 ]

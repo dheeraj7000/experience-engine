@@ -44,7 +44,8 @@ providers/        Model abstraction. Any free/open backend behind OpenAI /v1.
                   dry_run (no network) · openai_compat (Ollama/vLLM/Groq/...)
 schemas/          Episode · RewardVector · ExperienceObject · PolicyObject (pydantic)
 agent/            ReAct controller + sandboxed pytest tool (the reward substrate)
-persistence/      base · store (jsonl+vector) · a0 · a1 · a2_engine/ (the MVES loop)
+persistence/      base · store (jsonl+vector) · graph · graph_builder ·
+                  hybrid_retriever · a0 · a1 · a2_engine/ (the MVES loop)
   a2_engine/        taxonomy · diagnoser · pattern_miner · contradiction ·
                     inducer · validator · confidence · policy · engine
 harness/          environment · task_family · sequencer · runner · reporter
@@ -114,9 +115,31 @@ Phase 2 upgrades the learning loop with structured failure analysis:
   happened during each offline pass (clusters found, induced, promoted, rejected,
   reinforced, contradictions, cross-patterns).
 
+## Phase 3: Experience Graph (implemented)
+
+Phase 3 adds a graph store and hybrid multi-signal retrieval:
+
+- **Experience Graph** (`persistence/graph.py`): lightweight in-process typed
+  graph with nodes (episode, experience, policy, task_family, failure_mode) and
+  edges (supports, contradicts, reinforces, similar_to, transfers_to, promoted_to,
+  etc.). Supports BFS traversal, subgraph extraction, evidence/provenance queries,
+  and JSON serialization.
+- **Graph Builder** (`persistence/graph_builder.py`): constructs the graph from
+  ExperienceStore contents — episodes become nodes, experiences link to their
+  source episodes, policies link to their supporting experiences, cross-family
+  lessons get `transfers_to` edges, and similar experiences get `similar_to` edges.
+  Supports both full rebuild and incremental updates.
+- **Hybrid Retriever** (`persistence/hybrid_retriever.py`): multi-signal ranked
+  retrieval combining semantic similarity, confidence weighting, evidence strength,
+  graph proximity (BFS from family/context anchors), and recency. Replaces the
+  Phase 1 simple cosine search in the A2 engine's `retrieve()` method.
+- **Engine integration**: the A2 engine now builds and maintains the graph
+  incrementally during `record()` and `consolidate()`, and uses the hybrid
+  retriever for online context injection.
+
 ## What's deliberately NOT here yet (post go/no-go)
 
-Skill compiler, graph store, forgetting, full governance,
+Skill compiler, forgetting, full governance,
 exploration, weight-internalization. Building them before the core loop is shown
 to compound is spending ahead of the bet. See the proposal's phase plan.
 
@@ -133,4 +156,10 @@ to compound is spending ahead of the bet. See the proposal's phase plan.
 - `test_contradiction.py` — Phase 2: detecting and handling conflicting experiences.
 - `test_diagnoser_phase2.py` — Phase 2: structured causal chains, taxonomy-aware
   diagnosis, contributing factors.
+- `test_graph.py` — Phase 3: graph nodes, edges, BFS traversal, subgraph,
+  serialization roundtrip.
+- `test_graph_builder.py` — Phase 3: automatic graph construction from store,
+  similarity/transfer edges, incremental updates.
+- `test_hybrid_retriever.py` — Phase 3: multi-signal ranked retrieval, context
+  filtering, graph proximity boosting.
 ```

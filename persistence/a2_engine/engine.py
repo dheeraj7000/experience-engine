@@ -1,17 +1,17 @@
-"""A2 Experience Engine — Phase 2 upgrade with pattern mining + contradiction detection.
+"""A2 Experience Engine — Phase 3 with Experience Graph + Hybrid Retrieval.
 
-retrieve  : inject validated experiences + active policies (scoped, confident)
-record    : store the structured episode
+retrieve  : inject validated experiences + active policies via hybrid retriever
+record    : store the structured episode + update graph
 consolidate: cluster -> diagnose -> induce -> VALIDATE -> promote to policy
-             + contradiction detection + pattern mining
+             + contradiction detection + pattern mining + graph update
 
-Phase 2 additions over Phase 1:
-  - Feature-based clustering via PatternMiner (richer than signature-only)
-  - Failure taxonomy classification on every recorded episode
-  - Contradiction detection across active experiences
-  - Cross-cluster pattern detection
-  - Confidence penalty from contradictions
-  - Consolidation stats tracking
+Phase 3 additions over Phase 2:
+  - ExperienceGraph: typed nodes and edges representing relationships
+  - GraphBuilder: automatic graph construction from store contents
+  - HybridRetriever: multi-signal ranking (semantic + confidence + evidence +
+    graph proximity + recency) replaces the simple cosine search
+  - Graph is updated incrementally during record() and consolidate()
+  - Graph serialization in snapshots
 
 Consolidation runs OFFLINE (between checkpoints), so online latency stays
 comparable to A1 and the overhead metric is honest.
@@ -23,6 +23,9 @@ from typing import Any
 
 from schemas import Episode
 from schemas.experience import ValidationStatus
+from ..graph import ExperienceGraph, EdgeType, NodeType
+from ..graph_builder import GraphBuilder
+from ..hybrid_retriever import HybridRetriever
 from ..store import ExperienceStore
 from .contradiction import ContradictionMiner
 from .diagnoser import CausalDiagnoser
@@ -65,7 +68,7 @@ class ExperienceEngine:
     name = "a2"
 
     def __init__(self, store: ExperienceStore, offline_provider=None,
-                 min_confidence: float = 0.4) -> None:
+                 min_confidence: float = 0.4, use_graph: bool = True) -> None:
         self.store = store
         self.min_confidence = min_confidence
         self.diagnoser = CausalDiagnoser(provider=offline_provider)
@@ -77,8 +80,22 @@ class ExperienceEngine:
         self._consolidated_ids: set[str] = set()
         self.last_stats: ConsolidationStats | None = None
 
+        # Phase 3: Graph + hybrid retrieval.
+        self.use_graph = use_graph
+        self.graph = ExperienceGraph() if use_graph else None
+        self._graph_builder = GraphBuilder() if use_graph else None
+        self._retriever: HybridRetriever | None = None
+        if use_graph:
+            self._retriever = HybridRetriever(
+                store, self.graph, min_confidence=min_confidence)
+
     # ---- online -----------------------------------------------------------
     def retrieve(self, context: dict[str, Any]) -> str:
+        """Phase 3: use hybrid retriever if graph is available, else fall back."""
+        if self._retriever and self.graph and self.graph.node_count > 0:
+            return self._retriever.retrieve_text(context)
+
+        # Fallback: Phase 1/2 simple retrieval.
         query = context.get("goal", "") + " " + context.get("family", "")
         parts: list[str] = []
 
@@ -95,6 +112,10 @@ class ExperienceEngine:
 
     def record(self, episode: Episode) -> None:
         self.store.add_episode(episode)
+        # Phase 3: update graph incrementally.
+        if self._graph_builder and self.graph:
+            self._graph_builder.update_incremental(
+                self.graph, self.store, new_episodes=[episode])
 
     # ---- offline (the learning) ------------------------------------------
     def consolidate(self, replay_fn=None) -> ConsolidationStats:
@@ -131,9 +152,18 @@ class ExperienceEngine:
             promoted = self.validator.validate(candidate, replay_fn)
             self.store.add_experience(candidate)
             stats.experiences_induced += 1
+            # Phase 3: update graph with new experience.
+            if self._graph_builder and self.graph:
+                self._graph_builder.update_incremental(
+                    self.graph, self.store, new_experiences=[candidate])
             if promoted and candidate.validation_status == ValidationStatus.active:
-                self.store.add_policy(self.policy_mgr.promote(candidate))
+                policy = self.policy_mgr.promote(candidate)
+                self.store.add_policy(policy)
                 stats.experiences_promoted += 1
+                # Phase 3: update graph with new policy.
+                if self._graph_builder and self.graph:
+                    self._graph_builder.update_incremental(
+                        self.graph, self.store, new_policies=[policy])
             else:
                 stats.experiences_rejected += 1
             for e in eps:
@@ -146,6 +176,12 @@ class ExperienceEngine:
             if contradictions:
                 self.contradiction_miner.apply_contradictions(
                     self.store.experiences, contradictions)
+                # Phase 3: add contradicts edges to graph.
+                if self.graph:
+                    for c in contradictions:
+                        self.graph.add_edge(
+                            c.experience_a_id, c.experience_b_id,
+                            EdgeType.contradicts, weight=c.severity)
 
         # Step 4 (Phase 2): Cross-cluster pattern detection (informational).
         new_failures = [e for e in self.store.episodes
