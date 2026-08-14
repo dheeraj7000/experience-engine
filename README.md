@@ -137,11 +137,45 @@ Phase 3 adds a graph store and hybrid multi-signal retrieval:
   incrementally during `record()` and `consolidate()`, and uses the hybrid
   retriever for online context injection.
 
+## Phase 4: Skill Compilation (implemented)
+
+Phase 4 extracts reusable procedures from repeated successes:
+
+- **Skill schema** (`schemas/skill.py`): `SkillObject` with preconditions,
+  ordered workflow steps, postconditions, evidence tracking, versioning, and
+  validation lifecycle. `as_instruction()` formats for injection.
+- **Skill Compiler** (`persistence/a2_engine/skill_compiler.py`): induces skills
+  from clusters of successful episodes sharing a common action sequence. Validates
+  via held-out replay, reinforces with new evidence, deduplicates against existing
+  skills.
+- **Engine integration**: consolidation now compiles skills from successes
+  (alongside learning from failures). Active skills are injected during
+  `retrieve()` — the agent gets both lessons (what went wrong) and procedures
+  (what works).
+
+## Phase 5: Policy Management (implemented)
+
+Phase 5 upgrades the policy lifecycle to production-grade:
+
+- **Conflict detection** (`PolicyManager.detect_conflicts()`): finds overlapping
+  active policies (same scope + shared triggers) and resolves by priority/confidence.
+- **Scope refinement** (`refine_scope()`): narrows a policy's applicability by
+  adding conditions, creating a new version (old one superseded, not deleted).
+- **Versioning** (`supersede()`): deprecated policies remain for audit; new
+  versions inherit evidence chains.
+- **Rollback** (`rollback()`): deactivate a harmful policy without data loss.
+- **Safety gating**: safety-critical scopes (security, auth, deletion, production)
+  require higher confidence thresholds for promotion.
+- **Skill routing**: policies can reference compiled skills (`promote_from_skill()`),
+  creating a full chain: episodes → experience → skill → policy.
+- **Priority ordering** (`ordered_policies()`): deterministic resolution when
+  multiple policies apply.
+
 ## What's deliberately NOT here yet (post go/no-go)
 
-Skill compiler, forgetting, full governance,
-exploration, weight-internalization. Building them before the core loop is shown
-to compound is spending ahead of the bet. See the proposal's phase plan.
+Forgetting, full governance, exploration, weight-internalization. Building them
+before the core loop is shown to compound is spending ahead of the bet. See the
+proposal's phase plan.
 
 ## Tests worth knowing about
 
@@ -162,4 +196,8 @@ to compound is spending ahead of the bet. See the proposal's phase plan.
   similarity/transfer edges, incremental updates.
 - `test_hybrid_retriever.py` — Phase 3: multi-signal ranked retrieval, context
   filtering, graph proximity boosting.
+- `test_skill_compiler.py` — Phase 4: workflow induction from successes,
+  validation, reinforcement, deduplication.
+- `test_policy_manager.py` — Phase 5: conflict detection/resolution, scope
+  refinement, versioning, rollback, safety gating, skill routing.
 ```

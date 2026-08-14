@@ -11,7 +11,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from schemas import Episode, ExperienceObject, PolicyObject
+from schemas import Episode, ExperienceObject, PolicyObject, SkillObject
 from schemas.experience import ValidationStatus
 
 _WORD = re.compile(r"[a-z0-9_]+")
@@ -37,6 +37,7 @@ class ExperienceStore:
         self.episodes: list[Episode] = []
         self.experiences: list[ExperienceObject] = []
         self.policies: list[PolicyObject] = []
+        self.skills: list[SkillObject] = []
         if self.root:
             self.root.mkdir(parents=True, exist_ok=True)
 
@@ -52,6 +53,10 @@ class ExperienceStore:
     def add_policy(self, pol: PolicyObject) -> None:
         self.policies.append(pol)
         self._append("policies.jsonl", pol.model_dump(mode="json"))
+
+    def add_skill(self, skill: SkillObject) -> None:
+        self.skills.append(skill)
+        self._append("skills.jsonl", skill.model_dump(mode="json"))
 
     def _append(self, name: str, obj: dict) -> None:
         if not self.root:
@@ -96,6 +101,14 @@ class ExperienceStore:
         pols.sort(key=lambda p: p.priority, reverse=True)
         return pols
 
+    def active_skills(self, scope: str) -> list[SkillObject]:
+        """Return active skills applicable to the given scope."""
+        skills = [s for s in self.skills
+                  if s.validation_status == ValidationStatus.active
+                  and (s.scope == scope or s.scope == "")]
+        skills.sort(key=lambda s: s.confidence, reverse=True)
+        return skills
+
     @staticmethod
     def _ep_text(e: Episode) -> str:
         return f"{e.goal} " + " ".join(s.observation for s in e.steps)
@@ -108,5 +121,6 @@ class ExperienceStore:
             "episodes": [e.model_dump(mode="json") for e in self.episodes],
             "experiences": [e.model_dump(mode="json") for e in self.experiences],
             "policies": [p.model_dump(mode="json") for p in self.policies],
+            "skills": [s.model_dump(mode="json") for s in self.skills],
         }
         path.write_text(json.dumps(payload, indent=2))

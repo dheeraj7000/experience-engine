@@ -31,6 +31,7 @@ from .contradiction import ContradictionMiner
 from .diagnoser import CausalDiagnoser
 from .inducer import ExperienceInducer
 from .pattern_miner import PatternMiner
+from .skill_compiler import SkillCompiler
 from .taxonomy import classify_failure
 from .validator import ExperienceValidator
 from .policy import PolicyManager
@@ -50,6 +51,10 @@ class ConsolidationStats:
         self.experiences_reinforced: int = 0
         self.contradictions_found: int = 0
         self.cross_patterns_found: int = 0
+        self.skills_compiled: int = 0
+        self.skills_validated: int = 0
+        self.policy_conflicts_found: int = 0
+        self.policy_conflicts_resolved: int = 0
 
     def summary(self) -> dict[str, int]:
         return {
@@ -61,6 +66,10 @@ class ConsolidationStats:
             "experiences_reinforced": self.experiences_reinforced,
             "contradictions_found": self.contradictions_found,
             "cross_patterns_found": self.cross_patterns_found,
+            "skills_compiled": self.skills_compiled,
+            "skills_validated": self.skills_validated,
+            "policy_conflicts_found": self.policy_conflicts_found,
+            "policy_conflicts_resolved": self.policy_conflicts_resolved,
         }
 
 
@@ -77,6 +86,7 @@ class ExperienceEngine:
         self.policy_mgr = PolicyManager()
         self.pattern_miner = PatternMiner(min_cluster_size=MIN_CLUSTER)
         self.contradiction_miner = ContradictionMiner()
+        self.skill_compiler = SkillCompiler()
         self._consolidated_ids: set[str] = set()
         self.last_stats: ConsolidationStats | None = None
 
@@ -93,7 +103,12 @@ class ExperienceEngine:
     def retrieve(self, context: dict[str, Any]) -> str:
         """Phase 3: use hybrid retriever if graph is available, else fall back."""
         if self._retriever and self.graph and self.graph.node_count > 0:
-            return self._retriever.retrieve_text(context)
+            text = self._retriever.retrieve_text(context)
+            # Phase 4: also inject applicable skills.
+            skill_text = self._retrieve_skills(context)
+            if skill_text:
+                text = (text + "\n" + skill_text) if text else skill_text
+            return text
 
         # Fallback: Phase 1/2 simple retrieval.
         query = context.get("goal", "") + " " + context.get("family", "")
@@ -108,7 +123,24 @@ class ExperienceEngine:
         for e in exps:
             parts.append(f"- Experience (conf {e.confidence:.2f}): {e.lesson}")
 
+        # Phase 4: inject applicable skills.
+        skill_text = self._retrieve_skills(context)
+        if skill_text:
+            parts.append(skill_text)
+
         return "\n".join(parts)
+
+    def _retrieve_skills(self, context: dict[str, Any]) -> str:
+        """Retrieve applicable active skills for injection."""
+        family = context.get("family", "")
+        skills = self.store.active_skills(family)
+        if not skills:
+            return ""
+        # Inject top 2 skills max to avoid prompt bloat.
+        lines = []
+        for s in skills[:2]:
+            lines.append(f"- Skill: {s.as_instruction()}")
+        return "\n".join(lines)
 
     def record(self, episode: Episode) -> None:
         self.store.add_episode(episode)
@@ -190,6 +222,27 @@ class ExperienceEngine:
             feature_clusters = self.pattern_miner.cluster_by_features(new_failures)
             cross_patterns = self.pattern_miner.find_cross_cluster_patterns(feature_clusters)
             stats.cross_patterns_found = len(cross_patterns)
+
+        # Step 5 (Phase 4): Skill compilation from successful episodes.
+        new_skills = self.skill_compiler.compile_skills(
+            self.store.episodes, existing_skills=self.store.skills)
+        for skill in new_skills:
+            # Validate skill if replay is available.
+            if replay_fn:
+                validated = self.skill_compiler.validate_skill(skill, replay_fn)
+                if validated:
+                    stats.skills_validated += 1
+            self.store.add_skill(skill)
+            stats.skills_compiled += 1
+
+        # Step 6 (Phase 5): Policy conflict detection and resolution.
+        if self.store.policies:
+            conflicts = self.policy_mgr.detect_conflicts(self.store.policies)
+            stats.policy_conflicts_found = len(conflicts)
+            if conflicts:
+                actions = self.policy_mgr.resolve_conflicts(
+                    conflicts, self.store.policies)
+                stats.policy_conflicts_resolved = len(actions)
 
         self.last_stats = stats
         return stats
