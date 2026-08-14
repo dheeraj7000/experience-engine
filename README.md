@@ -45,6 +45,8 @@ providers/        Model abstraction. Any free/open backend behind OpenAI /v1.
 schemas/          Episode · RewardVector · ExperienceObject · PolicyObject (pydantic)
 agent/            ReAct controller + sandboxed pytest tool (the reward substrate)
 persistence/      base · store (jsonl+vector) · a0 · a1 · a2_engine/ (the MVES loop)
+  a2_engine/        taxonomy · diagnoser · pattern_miner · contradiction ·
+                    inducer · validator · confidence · policy · engine
 harness/          environment · task_family · sequencer · runner · reporter
 families/         toy_bug + bug_reproduction (both executable) + qa_families specs
 benchmarks/       lifelongagentbench adapter (Phase-1 anchor, stub)
@@ -90,9 +92,31 @@ rate-limit vs long-run tension:
 Every backend speaks the OpenAI `/v1/chat/completions` shape, so switching is a
 config change, not a code change.
 
+## Phase 2: Causal Diagnosis and Pattern Mining (implemented)
+
+Phase 2 upgrades the learning loop with structured failure analysis:
+
+- **Failure taxonomy** (`persistence/a2_engine/taxonomy.py`): classifies every
+  failure into typed categories (wrong_output, runtime_error, timeout,
+  missing_action, etc.) so diagnosis is targeted, not one-size-fits-all.
+- **Upgraded causal diagnoser** (`diagnoser.py`): multi-step trace analysis,
+  critical decision point detection, cross-episode agreement scoring, structured
+  `CausalChain` output. Falls back to heuristics when no LLM provider is available.
+- **Pattern miner** (`pattern_miner.py`): feature-based agglomerative clustering
+  beyond the Phase 1 signature-only approach. Finds structural similarity across
+  failure types, action sequences, and observations. Also detects cross-cluster
+  patterns (shared root causes that manifest differently on the surface).
+- **Contradiction miner** (`contradiction.py`): scans active experiences for
+  conflicting recommendations. Detects opposition via keyword-pair heuristics,
+  penalizes confidence, and suggests resolution strategies. Contradictions refine
+  scope — they don't delete experiences.
+- **Consolidation stats** (`ConsolidationStats`): full observability on what
+  happened during each offline pass (clusters found, induced, promoted, rejected,
+  reinforced, contradictions, cross-patterns).
+
 ## What's deliberately NOT here yet (post go/no-go)
 
-Skill compiler, graph store, contradiction mining, forgetting, full governance,
+Skill compiler, graph store, forgetting, full governance,
 exploration, weight-internalization. Building them before the core loop is shown
 to compound is spending ahead of the bet. See the proposal's phase plan.
 
@@ -103,4 +127,10 @@ to compound is spending ahead of the bet. See the proposal's phase plan.
 - `test_poisoned_experience.py` — the **non-negotiable gate**: a harmful lesson
   must be rejected, never promoted.
 - `test_a2_consolidation.py` — the cluster→diagnose→induce→validate→policy loop.
+- `test_taxonomy.py` — Phase 2: failure classification into typed categories.
+- `test_pattern_miner.py` — Phase 2: feature-based clustering and cross-cluster
+  pattern detection.
+- `test_contradiction.py` — Phase 2: detecting and handling conflicting experiences.
+- `test_diagnoser_phase2.py` — Phase 2: structured causal chains, taxonomy-aware
+  diagnosis, contributing factors.
 ```

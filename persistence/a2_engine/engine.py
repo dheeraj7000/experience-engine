@@ -1,8 +1,17 @@
-"""A2 Experience Engine — the MVES closed loop.
+"""A2 Experience Engine — Phase 2 upgrade with pattern mining + contradiction detection.
 
 retrieve  : inject validated experiences + active policies (scoped, confident)
 record    : store the structured episode
 consolidate: cluster -> diagnose -> induce -> VALIDATE -> promote to policy
+             + contradiction detection + pattern mining
+
+Phase 2 additions over Phase 1:
+  - Feature-based clustering via PatternMiner (richer than signature-only)
+  - Failure taxonomy classification on every recorded episode
+  - Contradiction detection across active experiences
+  - Cross-cluster pattern detection
+  - Confidence penalty from contradictions
+  - Consolidation stats tracking
 
 Consolidation runs OFFLINE (between checkpoints), so online latency stays
 comparable to A1 and the overhead metric is honest.
@@ -15,12 +24,41 @@ from typing import Any
 from schemas import Episode
 from schemas.experience import ValidationStatus
 from ..store import ExperienceStore
+from .contradiction import ContradictionMiner
 from .diagnoser import CausalDiagnoser
 from .inducer import ExperienceInducer
+from .pattern_miner import PatternMiner
+from .taxonomy import classify_failure
 from .validator import ExperienceValidator
 from .policy import PolicyManager
 
 MIN_CLUSTER = 3  # episodes with a shared signature before we induce a lesson
+
+
+class ConsolidationStats:
+    """Track what happened during a consolidation pass (observability)."""
+
+    def __init__(self) -> None:
+        self.clusters_found: int = 0
+        self.clusters_below_threshold: int = 0
+        self.experiences_induced: int = 0
+        self.experiences_promoted: int = 0
+        self.experiences_rejected: int = 0
+        self.experiences_reinforced: int = 0
+        self.contradictions_found: int = 0
+        self.cross_patterns_found: int = 0
+
+    def summary(self) -> dict[str, int]:
+        return {
+            "clusters_found": self.clusters_found,
+            "clusters_below_threshold": self.clusters_below_threshold,
+            "experiences_induced": self.experiences_induced,
+            "experiences_promoted": self.experiences_promoted,
+            "experiences_rejected": self.experiences_rejected,
+            "experiences_reinforced": self.experiences_reinforced,
+            "contradictions_found": self.contradictions_found,
+            "cross_patterns_found": self.cross_patterns_found,
+        }
 
 
 class ExperienceEngine:
@@ -34,7 +72,10 @@ class ExperienceEngine:
         self.inducer = ExperienceInducer()
         self.validator = ExperienceValidator()
         self.policy_mgr = PolicyManager()
+        self.pattern_miner = PatternMiner(min_cluster_size=MIN_CLUSTER)
+        self.contradiction_miner = ContradictionMiner()
         self._consolidated_ids: set[str] = set()
+        self.last_stats: ConsolidationStats | None = None
 
     # ---- online -----------------------------------------------------------
     def retrieve(self, context: dict[str, Any]) -> str:
@@ -56,27 +97,32 @@ class ExperienceEngine:
         self.store.add_episode(episode)
 
     # ---- offline (the learning) ------------------------------------------
-    def consolidate(self, replay_fn=None) -> None:
+    def consolidate(self, replay_fn=None) -> ConsolidationStats:
+        """Phase 2 consolidation: pattern mining + diagnosis + induction +
+        validation + contradiction detection."""
+        stats = ConsolidationStats()
+
+        # Step 1: Cluster new failures (Phase 1 signature-based for backward compat).
         clusters = self._cluster_new_failures()
+        stats.clusters_found = len(clusters)
+
+        # Step 2: Process each cluster.
         for signature, eps in clusters.items():
             if len(eps) < MIN_CLUSTER:
+                stats.clusters_below_threshold += 1
                 continue
             context = self._shared_context(eps)
             diagnosis = self.diagnoser.diagnose(eps)
             candidate = self.inducer.induce(eps, diagnosis, context)
             if candidate.confidence < self.min_confidence:
+                stats.clusters_below_threshold += 1
                 continue
 
             existing = self.store.find_mergeable(candidate.task_family,
-                                                   candidate.context_conditions)
+                                                candidate.context_conditions)
             if existing is not None:
-                # Same family + conditions recurring: REINFORCE the existing
-                # experience rather than mint a near-duplicate. Without this,
-                # every checkpoint with >=MIN_CLUSTER new same-signature
-                # failures promotes its own policy, and retrieve() ends up
-                # injecting several copies of the same unhelpful text —
-                # bloating tokens with no added lesson.
                 self._reinforce(existing, eps)
+                stats.experiences_reinforced += 1
                 for e in eps:
                     self._consolidated_ids.add(e.episode_id)
                 continue
@@ -84,10 +130,33 @@ class ExperienceEngine:
             # VALIDATE before it can influence behavior.
             promoted = self.validator.validate(candidate, replay_fn)
             self.store.add_experience(candidate)
+            stats.experiences_induced += 1
             if promoted and candidate.validation_status == ValidationStatus.active:
                 self.store.add_policy(self.policy_mgr.promote(candidate))
+                stats.experiences_promoted += 1
+            else:
+                stats.experiences_rejected += 1
             for e in eps:
                 self._consolidated_ids.add(e.episode_id)
+
+        # Step 3 (Phase 2): Contradiction detection across all active experiences.
+        if self.store.experiences:
+            contradictions = self.contradiction_miner.detect(self.store.experiences)
+            stats.contradictions_found = len(contradictions)
+            if contradictions:
+                self.contradiction_miner.apply_contradictions(
+                    self.store.experiences, contradictions)
+
+        # Step 4 (Phase 2): Cross-cluster pattern detection (informational).
+        new_failures = [e for e in self.store.episodes
+                        if not (e.outcome and e.outcome.task_success >= 1.0)]
+        if len(new_failures) >= MIN_CLUSTER * 2:
+            feature_clusters = self.pattern_miner.cluster_by_features(new_failures)
+            cross_patterns = self.pattern_miner.find_cross_cluster_patterns(feature_clusters)
+            stats.cross_patterns_found = len(cross_patterns)
+
+        self.last_stats = stats
+        return stats
 
     @staticmethod
     def _reinforce(existing, new_eps: list[Episode]) -> None:
