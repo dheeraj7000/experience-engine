@@ -171,11 +171,28 @@ Phase 5 upgrades the policy lifecycle to production-grade:
 - **Priority ordering** (`ordered_policies()`): deterministic resolution when
   multiple policies apply.
 
+## Phase 6: Forgetting & Governance (implemented)
+
+Phase 6 ensures the system doesn't accumulate infinite stale rules and provides
+safety/audit controls:
+
+- **Forgetting Manager** (`persistence/a2_engine/forgetting.py`): time-based
+  confidence decay with evidence-weighted retention. More evidence = slower decay.
+  More contradictions = faster decay. Items archived (not deleted) when confidence
+  drops below threshold. Staleness detection and revalidation scheduling.
+  Reinforcement resets the decay clock.
+- **Governance Layer** (`persistence/a2_engine/governance.py`): audit log for
+  every learning action (induction, promotion, decay, rollback). Risk assessment
+  (low/medium/high/critical) based on scope and content. Sensitive content
+  detection and redaction. Do-not-learn zones. Human review queue for high-risk
+  changes. Safety gating blocks experiences containing credentials/secrets.
+- **Engine integration**: decay runs each consolidation cycle. Governance blocks
+  sensitive experiences before promotion. Audit log tracks all learning actions.
+
 ## What's deliberately NOT here yet (post go/no-go)
 
-Forgetting, full governance, exploration, weight-internalization. Building them
-before the core loop is shown to compound is spending ahead of the bet. See the
-proposal's phase plan.
+Exploration and weight-internalization. Building them before the core loop is
+shown to compound is spending ahead of the bet. See the proposal's phase plan.
 
 ## Tests worth knowing about
 
@@ -200,4 +217,8 @@ proposal's phase plan.
   validation, reinforcement, deduplication.
 - `test_policy_manager.py` — Phase 5: conflict detection/resolution, scope
   refinement, versioning, rollback, safety gating, skill routing.
+- `test_forgetting.py` — Phase 6: confidence decay, evidence-weighted retention,
+  reinforcement, archival, staleness detection.
+- `test_governance.py` — Phase 6: audit logging, risk assessment, sensitive
+  content blocking, do-not-learn zones, human review queue.
 ```

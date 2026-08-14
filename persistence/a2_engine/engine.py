@@ -29,6 +29,8 @@ from ..hybrid_retriever import HybridRetriever
 from ..store import ExperienceStore
 from .contradiction import ContradictionMiner
 from .diagnoser import CausalDiagnoser
+from .forgetting import ForgettingManager, DecayConfig
+from .governance import GovernanceLayer, AuditAction, RiskLevel
 from .inducer import ExperienceInducer
 from .pattern_miner import PatternMiner
 from .skill_compiler import SkillCompiler
@@ -55,6 +57,9 @@ class ConsolidationStats:
         self.skills_validated: int = 0
         self.policy_conflicts_found: int = 0
         self.policy_conflicts_resolved: int = 0
+        self.items_decayed: int = 0
+        self.items_archived: int = 0
+        self.items_blocked_governance: int = 0
 
     def summary(self) -> dict[str, int]:
         return {
@@ -70,6 +75,9 @@ class ConsolidationStats:
             "skills_validated": self.skills_validated,
             "policy_conflicts_found": self.policy_conflicts_found,
             "policy_conflicts_resolved": self.policy_conflicts_resolved,
+            "items_decayed": self.items_decayed,
+            "items_archived": self.items_archived,
+            "items_blocked_governance": self.items_blocked_governance,
         }
 
 
@@ -87,6 +95,8 @@ class ExperienceEngine:
         self.pattern_miner = PatternMiner(min_cluster_size=MIN_CLUSTER)
         self.contradiction_miner = ContradictionMiner()
         self.skill_compiler = SkillCompiler()
+        self.forgetting = ForgettingManager()
+        self.governance = GovernanceLayer()
         self._consolidated_ids: set[str] = set()
         self.last_stats: ConsolidationStats | None = None
 
@@ -188,7 +198,19 @@ class ExperienceEngine:
             if self._graph_builder and self.graph:
                 self._graph_builder.update_incremental(
                     self.graph, self.store, new_experiences=[candidate])
-            if promoted and candidate.validation_status == ValidationStatus.active:
+            # Phase 6: governance check before promotion.
+            if self.governance.should_block(candidate):
+                candidate.validation_status = ValidationStatus.rejected
+                stats.items_blocked_governance += 1
+                stats.experiences_rejected += 1
+            elif promoted and candidate.validation_status == ValidationStatus.active:
+                # Log promotion.
+                self.governance.log(
+                    AuditAction.experience_promoted,
+                    candidate.experience_id, "experience",
+                    f"promoted with confidence={candidate.confidence:.2f}",
+                    risk_level=self.governance.assess_risk(candidate),
+                )
                 policy = self.policy_mgr.promote(candidate)
                 self.store.add_policy(policy)
                 stats.experiences_promoted += 1
@@ -243,6 +265,24 @@ class ExperienceEngine:
                 actions = self.policy_mgr.resolve_conflicts(
                     conflicts, self.store.policies)
                 stats.policy_conflicts_resolved = len(actions)
+
+        # Step 7 (Phase 6): Forgetting — decay unreinforced items.
+        decay_actions = self.forgetting.apply_decay(
+            self.store.experiences, self.store.policies, self.store.skills)
+        for da in decay_actions:
+            if da.action == "archived":
+                stats.items_archived += 1
+            else:
+                stats.items_decayed += 1
+            self.governance.log(
+                AuditAction.experience_decayed if da.target_type == "experience"
+                else AuditAction.policy_rolled_back,
+                da.target_id, da.target_type, da.reason,
+                risk_level=RiskLevel.low,
+            )
+
+        # Advance governance cycle.
+        self.governance.advance_cycle()
 
         self.last_stats = stats
         return stats
