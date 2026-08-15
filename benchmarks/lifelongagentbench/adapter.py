@@ -40,7 +40,8 @@ from schemas import RewardVector
 def _load_dataset(cache_dir: str | Path | None = None) -> list[dict]:
     """Load the LifelongAgentBench dataset from HuggingFace.
 
-    Falls back to a local cache file if the datasets library is unavailable.
+    The dataset has different schemas per environment subset (stored as
+    separate parquet files), so we load each subset individually.
     """
     cache_path = Path(cache_dir or ".cache/lifelongagentbench") / "data.json"
 
@@ -50,11 +51,28 @@ def _load_dataset(cache_dir: str | Path | None = None) -> list[dict]:
 
     try:
         from datasets import load_dataset
-        ds = load_dataset("csyq/LifelongAgentBench", split="train")
-        rows = [dict(row) for row in ds]
+
+        all_rows: list[dict] = []
+        # The dataset stores each env as a separate config (subdirectory).
+        for config_name in ("db_bench", "os_interaction", "knowledge_graph"):
+            try:
+                ds = load_dataset(
+                    "csyq/LifelongAgentBench",
+                    data_files=f"{config_name}/train-*.parquet",
+                    split="train",
+                )
+                for row in ds:
+                    normalized = _normalize_row(dict(row), config_name)
+                    all_rows.append(normalized)
+            except Exception:
+                continue
+
+        if not all_rows:
+            raise RuntimeError("Could not load any parquet files from the dataset")
+
         cache_path.parent.mkdir(parents=True, exist_ok=True)
-        cache_path.write_text(json.dumps(rows, default=str))
-        return rows
+        cache_path.write_text(json.dumps(all_rows, default=str))
+        return all_rows
     except ImportError:
         raise RuntimeError(
             "Install the `datasets` library: pip install datasets\n"
@@ -62,6 +80,50 @@ def _load_dataset(cache_dir: str | Path | None = None) -> list[dict]:
         )
     except Exception as e:
         raise RuntimeError(f"Failed to load LifelongAgentBench dataset: {e}")
+
+
+def _normalize_row(row: dict, env_type: str) -> dict:
+    """Normalize different schema formats into a unified structure."""
+    # Map various column names to our standard fields.
+    instruction = (
+        row.get("instruction")
+        or row.get("question")
+        or row.get("task")
+        or row.get("prompt")
+        or ""
+    )
+    answer = (
+        row.get("answer_info")
+        or row.get("answer_list")
+        or row.get("expected_output")
+        or row.get("answer")
+        or ""
+    )
+    context = (
+        row.get("table_info")
+        or row.get("context")
+        or row.get("entity_dict")
+        or row.get("setup")
+        or ""
+    )
+    task_id = (
+        row.get("sql_instruction_row_list_entry_hash")
+        or row.get("qid")
+        or row.get("sample_index")
+        or row.get("task_id")
+        or row.get("id")
+        or ""
+    )
+    skill_list = row.get("skill_list", "")
+
+    return {
+        "task_id": str(task_id),
+        "environment_type": env_type,
+        "instruction": str(instruction),
+        "answer": str(answer),
+        "context": str(context),
+        "skill_type": str(skill_list),
+    }
 
 
 def _group_by_env(rows: list[dict]) -> dict[str, list[dict]]:
