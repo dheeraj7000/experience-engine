@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Experience Engine — Continual Learning for AI Agents</title>
+    <meta name="description" content="A continual-learning architecture that transforms agent trajectories into validated, reusable competence. Not just memory — experience.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <nav class="nav">
+        <div class="nav-inner">
+            <a href="#" class="nav-logo">⚡ Experience Engine</a>
+            <div class="nav-links">
+                <a href="#architecture">Architecture</a>
+                <a href="#phases">Phases</a>
+                <a href="#families">Task Families</a>
+                <a href="#quickstart">Quickstart</a>
+                <a href="https://github.com/dheeraj7000/experience-engine" class="nav-github" target="_blank">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                    GitHub
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <header class="hero">
+        <div class="hero-inner">
+            <div class="hero-badge">Research Prototype • Phase 1–7 Complete</div>
+            <h1>Experience Engine</h1>
+            <p class="hero-subtitle">
+                A continual-learning architecture that transforms agent trajectories into <strong>validated, reusable competence</strong>.
+            </p>
+            <p class="hero-tagline">
+                Current agents treat the past as <em>context</em>.<br>
+                The Experience Engine treats the past as <em>training signal</em>.
+            </p>
+            <div class="hero-actions">
+                <a href="https://github.com/dheeraj7000/experience-engine" class="btn btn-primary">View on GitHub</a>
+                <a href="#quickstart" class="btn btn-secondary">Get Started</a>
+            </div>
+        </div>
+    </header>
+
+    <section class="section" id="problem">
+        <div class="container">
+            <h2>The Problem</h2>
+            <div class="comparison">
+                <div class="comparison-card comparison-old">
+                    <h3>Memory (Today)</h3>
+                    <div class="pipeline">
+                        <span>Past</span> → <span>Store</span> → <span>Retrieve</span> → <span>Use</span>
+                    </div>
+                    <p>Agents remember what happened but don't <em>improve</em> from it. The same mistakes repeat.</p>
+                </div>
+                <div class="comparison-card comparison-new">
+                    <h3>Experience (This Project)</h3>
+                    <div class="pipeline">
+                        <span>Record</span> → <span>Evaluate</span> → <span>Diagnose</span> → <span>Induce</span> → <span>Validate</span> → <span>Policy</span>
+                    </div>
+                    <p>Agents <em>learn</em> from trajectories — extracting validated lessons, compiling skills, and updating behavioral policies.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section section-dark" id="experiment">
+        <div class="container">
+            <h2>The Experiment</h2>
+            <p class="section-subtitle">Same model. Same tools. Same environment. Only the persistence layer changes.</p>
+            <div class="configs-grid">
+                <div class="config-card">
+                    <div class="config-label">A0</div>
+                    <h3>Stateless</h3>
+                    <p>Today's default agent. Records episodes for measurement only — injects nothing, learns nothing.</p>
+                    <code>NoPersistence</code>
+                </div>
+                <div class="config-card">
+                    <div class="config-label">A1</div>
+                    <h3>Memory-Only</h3>
+                    <p>Reflexion / ExpeL class. RAG over past episodes + shallow reflections. Helps modestly, then plateaus.</p>
+                    <code>MemoryOnly</code>
+                </div>
+                <div class="config-card config-card-highlight">
+                    <div class="config-label">A2</div>
+                    <h3>Experience Engine</h3>
+                    <p>Full MVES loop: cluster → diagnose → induce → <strong>validate on held-out</strong> → compile skill → update policy.</p>
+                    <code>ExperienceEngine</code>
+                </div>
+            </div>
+            <p class="section-note">
+                The central question: <strong>Does A2 show a steeper success curve than A1, with fewer repeated failures — net of overhead?</strong>
+            </p>
+        </div>
+    </section>
+
+    <section class="section" id="architecture">
+        <div class="container">
+            <h2>Architecture</h2>
+            <div class="arch-diagram">
+                <pre>
+┌─────────────────────────────────────────────────────────────┐
+│                    EXPERIENCE ENGINE                          │
+│                                                              │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
+│  │  Episode     │  │  Outcome    │  │  Trace Debugger /   │ │
+│  │  Recorder    │→ │  Evaluator  │→ │  Causal Reasoner    │ │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
+│         ↓                                      ↓             │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
+│  │  Pattern &   │  │  Experience │  │  Experience         │ │
+│  │  Contra-     │← │  Inducer    │← │  Validator          │ │
+│  │  diction     │  └─────────────┘  └─────────────────────┘ │
+│  │  Miner       │         ↓                    ↓             │
+│  └─────────────┘  ┌─────────────┐  ┌─────────────────────┐ │
+│                    │  Skill      │  │  Policy Manager     │ │
+│                    │  Compiler   │→ │  (conflict/version) │ │
+│                    └─────────────┘  └─────────────────────┘ │
+│         ↓                                      ↓             │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐ │
+│  │  Forgetting  │  │  Governance │  │  Exploration        │ │
+│  │  Manager     │  │  & Audit    │  │  Manager            │ │
+│  └─────────────┘  └─────────────┘  └─────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+         ↕                   ↕                    ↕
+┌────────────┐  ┌──────────────────┐  ┌───────────────────┐
+│  Episode   │  │  Experience      │  │  Skill Library &  │
+│  Store     │  │  Graph           │  │  Policy Registry  │
+└────────────┘  └──────────────────┘  └───────────────────┘
+                </pre>
+            </div>
+        </div>
+    </section>
+
+    <section class="section section-dark" id="phases">
+        <div class="container">
+            <h2>Implementation Phases</h2>
+            <div class="phases-grid">
+                <div class="phase-card done">
+                    <div class="phase-num">1</div>
+                    <h3>Minimal Engine</h3>
+                    <p>Episode recorder, outcome evaluator, experience schema, basic retrieval, validation gate, policy registry.</p>
+                </div>
+                <div class="phase-card done">
+                    <div class="phase-num">2</div>
+                    <h3>Causal Diagnosis</h3>
+                    <p>Failure taxonomy, trace debugger with CausalChain, feature-based clustering, contradiction mining.</p>
+                </div>
+                <div class="phase-card done">
+                    <div class="phase-num">3</div>
+                    <h3>Experience Graph</h3>
+                    <p>Typed graph store, automatic construction, similarity/transfer edges, hybrid multi-signal retriever.</p>
+                </div>
+                <div class="phase-card done">
+                    <div class="phase-num">4</div>
+                    <h3>Skill Compilation</h3>
+                    <p>Workflow induction from successes, preconditions/postconditions, validation, versioning.</p>
+                </div>
+                <div class="phase-card done">
+                    <div class="phase-num">5</div>
+                    <h3>Policy Management</h3>
+                    <p>Conflict detection/resolution, scope refinement, versioning, rollback, safety gating.</p>
+                </div>
+                <div class="phase-card done">
+                    <div class="phase-num">6</div>
+                    <h3>Forgetting & Governance</h3>
+                    <p>Confidence decay, staleness detection, audit logging, sensitive content blocking, human review.</p>
+                </div>
+                <div class="phase-card done">
+                    <div class="phase-num">7</div>
+                    <h3>Exploration & Internalization</h3>
+                    <p>Diversity scoring, exploration suggestions, internalization-worthiness scoring for candidate selection.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section" id="families">
+        <div class="container">
+            <h2>Task Families</h2>
+            <p class="section-subtitle">All rewards are execution-grounded — run the tests, not an LLM judge.</p>
+            <div class="families-grid">
+                <div class="family-card">
+                    <div class="family-icon">🐛</div>
+                    <h3>Bug Reproduction</h3>
+                    <p>Write a test that reproduces a reported bug. Graded: fails on buggy code AND passes on fixed reference.</p>
+                    <span class="family-tag">7 train + 2 held-out</span>
+                </div>
+                <div class="family-card">
+                    <div class="family-icon">🎲</div>
+                    <h3>Flaky Test Triage</h3>
+                    <p>Diagnose why a test fails intermittently and fix it. Graded: 5 consecutive passes + correct root cause.</p>
+                    <span class="family-tag">6 train + 1 held-out</span>
+                </div>
+                <div class="family-card">
+                    <div class="family-icon">🔧</div>
+                    <h3>Toy Bug Fix</h3>
+                    <p>Fix an arithmetic bug so its test passes. Smoke/plumbing family for end-to-end validation.</p>
+                    <span class="family-tag">6 train + 2 held-out</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section section-dark" id="key-ideas">
+        <div class="container">
+            <h2>Key Design Decisions</h2>
+            <div class="ideas-grid">
+                <div class="idea-card">
+                    <h3>🎯 Execution-Grounded Reward</h3>
+                    <p><code>task_success</code> comes from running pytest, not an LLM judge. The reward is a fact about executed code.</p>
+                </div>
+                <div class="idea-card">
+                    <h3>🛡️ Held-Out Validation Gate</h3>
+                    <p>A candidate experience cannot influence behavior until it demonstrably improves performance on held-out variants. Anti-self-delusion.</p>
+                </div>
+                <div class="idea-card">
+                    <h3>💸 Free / Open Only</h3>
+                    <p>Both roles route to models that cost nothing. Local Ollama out of the box, free-tier hosted as an option. 4GB VRAM minimum.</p>
+                </div>
+                <div class="idea-card">
+                    <h3>📊 Compounding Curves</h3>
+                    <p>The metric is the <em>slope</em> of success over accumulated episodes — not a single benchmark score. Learning compounds.</p>
+                </div>
+                <div class="idea-card">
+                    <h3>🧠 Causal, Not Surface</h3>
+                    <p>The diagnoser infers <em>why</em> failure occurred (root cause + counterfactual repair), not just that it failed.</p>
+                </div>
+                <div class="idea-card">
+                    <h3>🗑️ Controlled Forgetting</h3>
+                    <p>Experience decays without reinforcement. Contradicted lessons lose confidence. Stale items get revalidated. No infinite rule accumulation.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section" id="quickstart">
+        <div class="container">
+            <h2>Quickstart</h2>
+            <div class="code-block">
+                <div class="code-header">Install & test (no GPU needed)</div>
+                <pre><code>pip install -r requirements.txt
+pytest                              # 167 tests, no model needed</code></pre>
+            </div>
+            <div class="code-block">
+                <div class="code-header">Dry run — full pipeline, stub model (flat curves)</div>
+                <pre><code>python run.py --family bug_reproduction --configs a0 a1 a2 \
+    --seeds 1 2 3 --provider dry_run</code></pre>
+            </div>
+            <div class="code-block">
+                <div class="code-header">Real learning curves (requires Ollama + 4GB VRAM)</div>
+                <pre><code>ollama pull qwen2.5:3b-instruct
+
+python run.py --provider config --family bug_reproduction \
+    --n-episodes 28 --checkpoint-every 7 --max-steps 3</code></pre>
+            </div>
+        </div>
+    </section>
+
+    <section class="section section-dark" id="stats">
+        <div class="container">
+            <h2>By the Numbers</h2>
+            <div class="stats-grid">
+                <div class="stat">
+                    <div class="stat-num">7</div>
+                    <div class="stat-label">Phases Complete</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-num">13</div>
+                    <div class="stat-label">Internal Modules</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-num">167</div>
+                    <div class="stat-label">Tests Passing</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-num">3</div>
+                    <div class="stat-label">Task Families</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-num">4</div>
+                    <div class="stat-label">Dependencies</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-num">0</div>
+                    <div class="stat-label">API Keys Required</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <p>Experience Engine — transforming trajectories into competence.</p>
+            <p class="footer-links">
+                <a href="https://github.com/dheeraj7000/experience-engine">GitHub</a> •
+                <a href="https://github.com/dheeraj7000/experience-engine/blob/master/docs/EXPERIENCE_ENGINE_PROPOSAL.md">Full Proposal</a> •
+                <a href="https://github.com/dheeraj7000/experience-engine/blob/master/README.md">README</a>
+            </p>
+        </div>
+    </footer>
+</body>
+</html>
