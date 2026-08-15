@@ -189,10 +189,27 @@ safety/audit controls:
 - **Engine integration**: decay runs each consolidation cycle. Governance blocks
   sensitive experiences before promotion. Audit log tracks all learning actions.
 
-## What's deliberately NOT here yet (post go/no-go)
+## Phase 7: Exploration & Internalization (implemented)
 
-Exploration and weight-internalization. Building them before the core loop is
-shown to compound is spending ahead of the bet. See the proposal's phase plan.
+Phase 7 adds autonomous exploration guidance and internalization candidate scoring:
+
+- **Exploration Manager** (`persistence/a2_engine/exploration.py`): profiles each
+  task family (success rate, variant coverage, strategy diversity). Computes
+  exploration scores and generates prioritized suggestions (practice, try
+  alternative, expand variants). Measures strategy diversity via normalized
+  entropy to detect exploration collapse. Tracks exploitation ratio.
+- **Experience Internalizer** (`persistence/a2_engine/internalizer.py`): scores
+  experiences and skills for internalization-worthiness using 5 signals (evidence,
+  confidence, stability, transfer utility, safety). Strict eligibility thresholds
+  (min evidence, min confidence, max contradictions, safety check). Produces
+  ranked candidate lists for human review — does NOT perform automatic weight
+  updates.
+
+## All phases complete
+
+The full Experience Engine architecture is implemented (Phases 1–7). The system
+is ready for real evaluation with a live model to answer the central question:
+does A2 compound better than A1?
 
 ## Tests worth knowing about
 
@@ -221,4 +238,8 @@ shown to compound is spending ahead of the bet. See the proposal's phase plan.
   reinforcement, archival, staleness detection.
 - `test_governance.py` — Phase 6: audit logging, risk assessment, sensitive
   content blocking, do-not-learn zones, human review queue.
+- `test_exploration.py` — Phase 7: family profiling, diversity scoring,
+  exploration suggestions, exploitation ratio.
+- `test_internalizer.py` — Phase 7: internalization-worthiness scoring,
+  eligibility thresholds, safety checks, candidate ranking.
 ```

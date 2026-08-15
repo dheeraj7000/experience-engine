@@ -2,9 +2,11 @@ from .engine import ExperienceEngine, ConsolidationStats
 from .confidence import compute_confidence
 from .contradiction import ContradictionMiner, Contradiction
 from .diagnoser import CausalDiagnoser, CausalChain
+from .exploration import ExplorationManager, FamilyProfile, ExplorationSuggestion
 from .forgetting import ForgettingManager, DecayConfig, ForgettingAction
 from .governance import GovernanceLayer, AuditEntry, AuditAction, RiskLevel
 from .inducer import ExperienceInducer
+from .internalizer import ExperienceInternalizer, InternalizationCandidate, InternalizationConfig
 from .pattern_miner import PatternMiner, PatternCluster
 from .policy import PolicyManager, PolicyConflict
 from .skill_compiler import SkillCompiler
@@ -16,9 +18,11 @@ __all__ = [
     "compute_confidence",
     "ContradictionMiner", "Contradiction",
     "CausalDiagnoser", "CausalChain",
+    "ExplorationManager", "FamilyProfile", "ExplorationSuggestion",
     "ForgettingManager", "DecayConfig", "ForgettingAction",
     "GovernanceLayer", "AuditEntry", "AuditAction", "RiskLevel",
     "ExperienceInducer",
+    "ExperienceInternalizer", "InternalizationCandidate", "InternalizationConfig",
     "PatternMiner", "PatternCluster",
     "PolicyManager", "PolicyConflict",
     "SkillCompiler",
