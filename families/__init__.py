@@ -9,15 +9,17 @@ from __future__ import annotations
 
 from .toy_bug import ToyBugFamily
 from .bug_reproduction import BugReproductionFamily
+from .flaky_test_triage import FlakyTestTriageFamily
 
 _REGISTRY = {
     "toy_bug": ToyBugFamily,
     "bug_reproduction": BugReproductionFamily,
+    "flaky_test_triage": FlakyTestTriageFamily,
 }
 
 # Declared but not yet implemented (see qa_families.py for the spec).
 PLANNED = [
-    "flaky_test_triage", "test_authoring",
+    "test_authoring",
     "regression_bisect", "failure_clustering",
 ]
 
